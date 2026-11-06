@@ -63,9 +63,27 @@ CREATE TABLE IF NOT EXISTS events (
     level TEXT NOT NULL,
     message TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tape_measures (
+    id INTEGER PRIMARY KEY,
+    profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    measured_at TEXT NOT NULL,
+    utc_offset_s INTEGER NOT NULL,
+    waist_cm REAL,
+    neck_cm REAL,
+    hip_cm REAL,
+    received_at TEXT NOT NULL,
+    CHECK (waist_cm IS NOT NULL OR neck_cm IS NOT NULL OR hip_cm IS NOT NULL),
+    UNIQUE (profile_id, measured_at)
+);
 """
 
 PROFILE_FIELDS = ("name", "sex", "birth_date", "height_cm", "start_weight_kg")
+
+
+def normalize_fat_display(value: str | None) -> str:
+    if value in ("scale", "tape", "average"):
+        return value
+    return "scale"
 
 
 def now_iso() -> str:
@@ -81,6 +99,12 @@ class Database:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
+        columns = {row[1] for row in self.conn.execute("PRAGMA table_info(profiles)")}
+        if "fat_display" not in columns:
+            self.conn.execute(
+                "ALTER TABLE profiles "
+                "ADD COLUMN fat_display TEXT NOT NULL DEFAULT 'scale'"
+            )
         self.conn.commit()
 
     # settings ---------------------------------------------------------
@@ -143,6 +167,61 @@ class Database:
     def delete_profile(self, profile_id: int) -> None:
         self.conn.execute("DELETE FROM profiles WHERE id = ?", (profile_id,))
         self.conn.commit()
+
+    def normalize_fat_display(self, value: str | None) -> str:
+        return normalize_fat_display(value)
+
+    def set_fat_display(self, profile_id: int, value: str) -> None:
+        if value not in ("scale", "tape", "average"):
+            raise ValueError(value)
+        self.conn.execute(
+            "UPDATE profiles SET fat_display = ? WHERE id = ?",
+            (value, profile_id),
+        )
+        self.conn.commit()
+
+    def insert_tape(self, values: dict[str, Any]) -> int | None:
+        columns = list(values)
+        try:
+            cur = self.conn.execute(
+                f"INSERT INTO tape_measures ({', '.join(columns)}) "
+                f"VALUES ({', '.join('?' for _ in columns)})",
+                [values[column] for column in columns],
+            )
+        except sqlite3.IntegrityError:
+            return None
+        self.conn.commit()
+        return int(cur.lastrowid)
+
+    def update_tape(self, tape_id: int, values: dict[str, Any]) -> bool:
+        if self.tape(tape_id) is None:
+            return False
+        sets = ", ".join(f"{column} = ?" for column in values)
+        try:
+            self.conn.execute(
+                f"UPDATE tape_measures SET {sets} WHERE id = ?",
+                [*values.values(), tape_id],
+            )
+        except sqlite3.IntegrityError:
+            return False
+        self.conn.commit()
+        return True
+
+    def delete_tape(self, tape_id: int) -> None:
+        self.conn.execute("DELETE FROM tape_measures WHERE id = ?", (tape_id,))
+        self.conn.commit()
+
+    def tape(self, tape_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            "SELECT * FROM tape_measures WHERE id = ?", (tape_id,)
+        ).fetchone()
+
+    def profile_tapes(self, profile_id: int) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            "SELECT * FROM tape_measures WHERE profile_id = ? "
+            "ORDER BY measured_at DESC",
+            (profile_id,),
+        ).fetchall()
 
     def recent_weights(self, profile_id: int, limit: int = 5) -> list[float]:
         rows = self.conn.execute(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 import unittest
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -543,6 +544,153 @@ class DatabasePathTests(unittest.TestCase):
             (data_dir / "bathroom-hub.db").write_bytes(b"new")
             self.assertEqual(database_path(data_dir).read_bytes(), b"new")
             self.assertTrue((data_dir / "open-ble-hub.db").exists())
+
+
+class TapeStoreTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = TemporaryDirectory()
+        self.db = Database(Path(self.tmp.name) / "hub.db")
+
+    def tearDown(self):
+        self.db.conn.close()
+        self.tmp.cleanup()
+
+    def test_tape_round_trip_orders_newest_first(self):
+        me = self.db.create_profile(ME)
+        older = self.db.insert_tape(
+            {
+                "profile_id": me,
+                "measured_at": "2020-01-01T18:00:00+00:00",
+                "utc_offset_s": 0,
+                "waist_cm": 90,
+                "neck_cm": 38,
+                "hip_cm": None,
+                "received_at": "2020-01-01T18:00:01+00:00",
+            }
+        )
+        newer = self.db.insert_tape(
+            {
+                "profile_id": me,
+                "measured_at": "2020-01-02T18:00:00+00:00",
+                "utc_offset_s": 0,
+                "waist_cm": None,
+                "neck_cm": 38,
+                "hip_cm": 100,
+                "received_at": "2020-01-02T18:00:01+00:00",
+            }
+        )
+        self.assertIsNotNone(older)
+        self.assertEqual(
+            [row["id"] for row in self.db.profile_tapes(me)], [newer, older]
+        )
+        self.assertEqual(self.db.tape(older)["waist_cm"], 90)
+        self.assertTrue(
+            self.db.update_tape(
+                older,
+                {
+                    "measured_at": "2020-01-01T19:00:00+00:00",
+                    "utc_offset_s": 0,
+                    "waist_cm": 91,
+                    "neck_cm": 38,
+                    "hip_cm": None,
+                },
+            )
+        )
+        self.assertEqual(self.db.tape(older)["waist_cm"], 91)
+
+    def test_duplicate_instant_and_empty_tape_are_rejected(self):
+        me = self.db.create_profile(ME)
+        values = {
+            "profile_id": me,
+            "measured_at": "2020-01-02T18:00:00+00:00",
+            "utc_offset_s": 0,
+            "waist_cm": 90,
+            "neck_cm": None,
+            "hip_cm": None,
+            "received_at": "2020-01-02T18:00:01+00:00",
+        }
+        self.assertIsNotNone(self.db.insert_tape(values))
+        self.assertIsNone(self.db.insert_tape(values))
+        self.assertFalse(
+            self.db.update_tape(
+                999,
+                {
+                    "measured_at": "2020-01-03T18:00:00+00:00",
+                    "utc_offset_s": 0,
+                    "waist_cm": 90,
+                    "neck_cm": None,
+                    "hip_cm": None,
+                },
+            )
+        )
+        empty = dict(values, measured_at="2020-01-04T18:00:00+00:00")
+        empty["waist_cm"] = None
+        self.assertIsNone(self.db.insert_tape(empty))
+
+    def test_deleting_a_person_deletes_tapes_and_keeps_weighs(self):
+        me = self.db.create_profile(ME)
+        tape_id = self.db.insert_tape(
+            {
+                "profile_id": me,
+                "measured_at": "2020-01-02T18:00:00+00:00",
+                "utc_offset_s": 0,
+                "waist_cm": 90,
+                "neck_cm": 38,
+                "hip_cm": None,
+                "received_at": "2020-01-02T18:00:01+00:00",
+            }
+        )
+        self.db.insert_measurement(
+            {
+                "measured_at": "2020-01-02T18:00:00+00:00",
+                "utc_offset_s": 0,
+                "weight_kg": 97.5,
+                "raw_weight": "aa",
+                "received_at": "2020-01-02T18:00:01+00:00",
+                "profile_id": me,
+                "fat_pct": 27.4,
+                "lean_kg": 70.8,
+                "bmi": 29.1,
+            }
+        )
+        self.db.delete_profile(me)
+        self.assertIsNone(self.db.tape(tape_id))
+        self.assertEqual(len(self.db.measurements()), 1)
+        self.assertIsNone(self.db.measurements()[0]["profile_id"])
+
+    def test_existing_database_defaults_fat_display_to_scale(self):
+        path = Path(self.tmp.name) / "old.db"
+        conn = sqlite3.connect(path)
+        conn.execute(
+            """CREATE TABLE profiles (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                sex TEXT NOT NULL,
+                birth_date TEXT NOT NULL,
+                height_cm REAL NOT NULL,
+                start_weight_kg REAL,
+                created_at TEXT NOT NULL
+            )"""
+        )
+        conn.execute(
+            "INSERT INTO profiles (name, sex, birth_date, height_cm, created_at) "
+            "VALUES ('Me', 'male', '1990-01-01', 183, '2020-01-01T00:00:00+00:00')"
+        )
+        conn.commit()
+        conn.close()
+        db = Database(path)
+        self.addCleanup(db.conn.close)
+        self.assertEqual(db.profile(1)["fat_display"], "scale")
+        db.conn.execute("UPDATE profiles SET fat_display = 'nope' WHERE id = 1")
+        db.conn.commit()
+        self.assertEqual(
+            db.normalize_fat_display(db.profile(1)["fat_display"]), "scale"
+        )
+        db.set_fat_display(1, "tape")
+        self.assertEqual(db.profile(1)["fat_display"], "tape")
+        with self.assertRaises(ValueError):
+            db.set_fat_display(1, "nope")
+        self.assertEqual(db.profile(1)["fat_display"], "tape")
 
 
 if __name__ == "__main__":
