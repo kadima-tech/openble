@@ -53,16 +53,16 @@ CI does not replace a hardware smoke test. Before merging a bleak upgrade, pair 
 
 ## Linters and CI
 
-[Ruff](https://docs.astral.sh/ruff/) 0.17.1 lints and formats Python. The config is [ruff.toml](ruff.toml), aimed at Python 3.11. There is no type checker and no pre-commit hook.
+[Ruff](https://docs.astral.sh/ruff/) 0.17.3 lints and formats Python. The config is [ruff.toml](ruff.toml), aimed at Python 3.11. There is no type checker and no pre-commit hook.
 
 ```bash
-python3 -m pip install ruff==0.17.1
+python3 -m pip install ruff==0.17.3
 make lint
 ```
 
 `make lint` runs `ruff check` and `ruff format --check`. Match that, and match the file you are editing. Quotes inside f-strings stay as they are: reusing the outer quote is Python 3.12 syntax, and this project is 3.11.
 
-GitHub Actions runs that lint, and `make test`, on every push and pull request. Tests run on Python 3.11, 3.12, 3.13 and 3.14, on Linux. CI has to pass before merge.
+GitHub Actions runs that lint, and `make test`, on every push and pull request. Tests run on Python 3.11, 3.12, 3.13, 3.14 and 3.15, on Linux. CI has to pass before merge.
 
 ## Pull requests
 
