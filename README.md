@@ -100,7 +100,7 @@ git tag openble-lifesense-v0.1.0
 git push origin openble-lifesense-v0.1.0
 ```
 
-[`.github/workflows/publish.yml`](.github/workflows/publish.yml) checks the version, tests the wheel on Python 3.11 and 3.14, and publishes it with PyPI trusted publishing. Each PyPI project needs its own pending publisher for this repository, workflow `publish.yml`, and environment `pypi-<distribution>` (for example `pypi-openble-lifesense`). A pending publisher is unique on that combination, so the same environment cannot be reused for a second project.
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml) checks the version, tests the wheel on Python 3.11 and 3.15, and publishes it with PyPI trusted publishing. Each PyPI project needs its own pending publisher for this repository, workflow `publish.yml`, and environment `pypi-<distribution>` (for example `pypi-openble-lifesense`). A pending publisher is unique on that combination, so the same environment cannot be reused for a second project.
 
 ## Releasing a hub app
 

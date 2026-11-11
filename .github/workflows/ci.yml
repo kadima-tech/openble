@@ -26,13 +26,13 @@ jobs:
         uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
         with:
           args: check
-          version: "0.17.1"
+          version: "0.17.3"
 
       - name: Ruff format
         uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
         with:
           args: format --check
-          version: "0.17.1"
+          version: "0.17.3"
 
   test:
     name: test (${{ matrix.python-version }})
@@ -41,18 +41,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.11 is the minimum in README and CONTRIBUTING. 3.12–3.14 are the
+        # 3.11 is the minimum in README and CONTRIBUTING. 3.12–3.15 are the
         # later releases the same syntax runs on. make test installs
         # every package and app editable, including bleak, and runs the Bluetooth fakes in
         # tests/test_bluetooth.py. Those tests do not open a radio. Linux
         # only: macOS runners cost more and added little.
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
