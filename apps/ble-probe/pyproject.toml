@@ -16,7 +16,7 @@ classifiers = ["Private :: Do Not Upload"]
 dependencies = [
     "openble-lifesense>=0.1,<0.2",
     "openble-sonicare>=0.1,<0.2",
-    "bleak>=3.0.2,<4",
+    "bleak>=3.1.0,<4",
 ]
 
 [project.scripts]

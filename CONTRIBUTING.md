@@ -44,7 +44,7 @@ pytest is not installed or configured. `.pytest_cache/` is listed in `.gitignore
 
 ### Bleak upgrades
 
-`make test` installs `bleak` from the apps' `pyproject.toml` files (`bleak>=3.0.2,<4`) and runs `tests/test_bluetooth.py` on Linux. Those tests import bleak and drive `bathroom_hub/listener.py` and `ble_probe/session.py` with fakes spec'd to the installed bleak classes: discovery with `return_adv=True`, detection callbacks, `BleakClient` as a context manager, service and characteristic enumeration, read and write with `response=True`, start and stop notify (including the `8A82` stop-then-restart), `is_connected`, and `BleakError`, including the "Insufficient Encryption" hint. A signature change fails CI. The tests do not open a radio. The upper bound means the next major version arrives as a Dependabot pull request instead of installing on its own.
+`make test` installs `bleak` from the apps' `pyproject.toml` files (`bleak>=3.1.0,<4`) and runs `tests/test_bluetooth.py` on Linux. Those tests import bleak and drive `bathroom_hub/listener.py` and `ble_probe/session.py` with fakes spec'd to the installed bleak classes: discovery with `return_adv=True`, detection callbacks, `BleakClient` as a context manager, service and characteristic enumeration, read and write with `response=True`, start and stop notify (including the `8A82` stop-then-restart), `is_connected`, and `BleakError`, including the "Insufficient Encryption" hint. A signature change fails CI. The tests do not open a radio. The upper bound means the next major version arrives as a Dependabot pull request instead of installing on its own.
 
 CI does not replace a hardware smoke test. Before merging a bleak upgrade, pair a DL8780 and take a weigh on both stacks this project runs on:
 
@@ -53,10 +53,10 @@ CI does not replace a hardware smoke test. Before merging a bleak upgrade, pair 
 
 ## Linters and CI
 
-[Ruff](https://docs.astral.sh/ruff/) 0.17.3 lints and formats Python. The config is [ruff.toml](ruff.toml), aimed at Python 3.11. There is no type checker and no pre-commit hook.
+[Ruff](https://docs.astral.sh/ruff/) 0.17.4 lints and formats Python. The config is [ruff.toml](ruff.toml), aimed at Python 3.11. There is no type checker and no pre-commit hook.
 
 ```bash
-python3 -m pip install ruff==0.17.3
+python3 -m pip install ruff==0.17.4
 make lint
 ```
 
